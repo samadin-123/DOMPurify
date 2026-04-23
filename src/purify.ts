@@ -13,6 +13,7 @@ import {
   clone,
   entries,
   freeze,
+  seal,
   arrayForEach,
   arrayIsArray,
   arrayLastIndexOf,
@@ -214,6 +215,12 @@ function createDOMPurify(window: WindowLike = getGlobal()): DOMPurify {
   } = EXPRESSIONS;
 
   let { IS_ALLOWED_URI } = EXPRESSIONS;
+
+  // Pre-compile frequently used inline regex patterns
+  const HAS_TAG_PATTERN = seal(/<[/\w!]/g);
+  const HAS_TAG_SIMPLE_PATTERN = seal(/<[/\w]/g);
+  const HAS_NOSCRIPT_PATTERN = seal(/<\/no(script|embed|frames)/i);
+  const SELF_CLOSE_PATTERN = seal(/\/>/i);
 
   /**
    * We consider the elements and attributes below to be safe. Ideally
@@ -1139,8 +1146,8 @@ function createDOMPurify(window: WindowLike = getGlobal()): DOMPurify {
       SAFE_FOR_XML &&
       currentNode.hasChildNodes() &&
       !_isNode(currentNode.firstElementChild) &&
-      regExpTest(/<[/\w!]/g, currentNode.innerHTML) &&
-      regExpTest(/<[/\w!]/g, currentNode.textContent)
+      regExpTest(HAS_TAG_PATTERN, currentNode.innerHTML) &&
+      regExpTest(HAS_TAG_PATTERN, currentNode.textContent)
     ) {
       _forceRemove(currentNode);
       return true;
@@ -1167,7 +1174,7 @@ function createDOMPurify(window: WindowLike = getGlobal()): DOMPurify {
     if (
       SAFE_FOR_XML &&
       currentNode.nodeType === NODE_TYPE.comment &&
-      regExpTest(/<[/\w]/g, currentNode.data)
+      regExpTest(HAS_TAG_SIMPLE_PATTERN, currentNode.data)
     ) {
       _forceRemove(currentNode);
       return true;
@@ -1229,7 +1236,7 @@ function createDOMPurify(window: WindowLike = getGlobal()): DOMPurify {
       (tagName === 'noscript' ||
         tagName === 'noembed' ||
         tagName === 'noframes') &&
-      regExpTest(/<\/no(script|embed|frames)/i, currentNode.innerHTML)
+      regExpTest(HAS_NOSCRIPT_PATTERN, currentNode.innerHTML)
     ) {
       _forceRemove(currentNode);
       return true;
@@ -1490,7 +1497,7 @@ function createDOMPurify(window: WindowLike = getGlobal()): DOMPurify {
       }
 
       /* Work around a security issue in jQuery 3.0 */
-      if (!ALLOW_SELF_CLOSE_IN_ATTR && regExpTest(/\/>/i, value)) {
+      if (!ALLOW_SELF_CLOSE_IN_ATTR && regExpTest(SELF_CLOSE_PATTERN, value)) {
         _removeAttribute(name, currentNode);
         continue;
       }

@@ -436,6 +436,11 @@ function createDOMPurify() {
   let {
     IS_ALLOWED_URI: IS_ALLOWED_URI$1
   } = EXPRESSIONS;
+  // Pre-compile frequently used inline regex patterns
+  const HAS_TAG_PATTERN = seal(/<[/\w!]/g);
+  const HAS_TAG_SIMPLE_PATTERN = seal(/<[/\w]/g);
+  const HAS_NOSCRIPT_PATTERN = seal(/<\/no(script|embed|frames)/i);
+  const SELF_CLOSE_PATTERN = seal(/\/>/i);
   /**
    * We consider the elements and attributes below to be safe. Ideally
    * don't add any new ones but feel free to remove unwanted ones.
@@ -1004,7 +1009,7 @@ function createDOMPurify() {
       allowedTags: ALLOWED_TAGS
     });
     /* Detect mXSS attempts abusing namespace confusion */
-    if (SAFE_FOR_XML && currentNode.hasChildNodes() && !_isNode(currentNode.firstElementChild) && regExpTest(/<[/\w!]/g, currentNode.innerHTML) && regExpTest(/<[/\w!]/g, currentNode.textContent)) {
+    if (SAFE_FOR_XML && currentNode.hasChildNodes() && !_isNode(currentNode.firstElementChild) && regExpTest(HAS_TAG_PATTERN, currentNode.innerHTML) && regExpTest(HAS_TAG_PATTERN, currentNode.textContent)) {
       _forceRemove(currentNode);
       return true;
     }
@@ -1019,7 +1024,7 @@ function createDOMPurify() {
       return true;
     }
     /* Remove any kind of possibly harmful comments */
-    if (SAFE_FOR_XML && currentNode.nodeType === NODE_TYPE.comment && regExpTest(/<[/\w]/g, currentNode.data)) {
+    if (SAFE_FOR_XML && currentNode.nodeType === NODE_TYPE.comment && regExpTest(HAS_TAG_SIMPLE_PATTERN, currentNode.data)) {
       _forceRemove(currentNode);
       return true;
     }
@@ -1055,7 +1060,7 @@ function createDOMPurify() {
       return true;
     }
     /* Make sure that older browsers don't get fallback-tag mXSS */
-    if ((tagName === 'noscript' || tagName === 'noembed' || tagName === 'noframes') && regExpTest(/<\/no(script|embed|frames)/i, currentNode.innerHTML)) {
+    if ((tagName === 'noscript' || tagName === 'noembed' || tagName === 'noframes') && regExpTest(HAS_NOSCRIPT_PATTERN, currentNode.innerHTML)) {
       _forceRemove(currentNode);
       return true;
     }
@@ -1208,7 +1213,7 @@ function createDOMPurify() {
         continue;
       }
       /* Work around a security issue in jQuery 3.0 */
-      if (!ALLOW_SELF_CLOSE_IN_ATTR && regExpTest(/\/>/i, value)) {
+      if (!ALLOW_SELF_CLOSE_IN_ATTR && regExpTest(SELF_CLOSE_PATTERN, value)) {
         _removeAttribute(name, currentNode);
         continue;
       }
